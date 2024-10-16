@@ -21,28 +21,24 @@ const getTasksDueTomorrow = async () => {
   return result.rows;
 };
 
-// Function to send notifications for tasks due tomorrow
 const notifyUsersOfDueTasks = async () => {
   try {
     const tasksDueTomorrow = await getTasksDueTomorrow();
 
     if (tasksDueTomorrow.length === 0) {
       logger.info('No tasks are due tomorrow.');
-      return; // Exit early if no tasks are found
+      return;
     }
 
     for (const task of tasksDueTomorrow) {
-      // Build the message for the notification
       const notificationMessage = `Reminder: The task "${task.title}" is due tomorrow. Please complete it on time.`;
 
-      // Insert the notification into the 'notifications' table
       await db.query(
         `INSERT INTO notifications (user_id, task_id, message, created_at) 
            VALUES ($1, $2, $3, NOW())`,
         [task.assigned_user_id, task.id, notificationMessage]
       );
 
-      // Log the notification creation
       logger.info(
         `Notification entry created for task "${task.title}" due tomorrow for user ${task.assigned_user_id}`
       );

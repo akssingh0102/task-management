@@ -1,11 +1,14 @@
 -- Create Users Table
+DROP TABLE IF EXISTS users CASCADE;
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL
 );
 
 -- Create Projects Table
+DROP TABLE IF EXISTS projects CASCADE;
 CREATE TABLE IF NOT EXISTS projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
@@ -14,6 +17,7 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 
 -- Create Tasks Table
+DROP TABLE IF EXISTS tasks CASCADE;
 CREATE TABLE IF NOT EXISTS tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
@@ -31,6 +35,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 
 -- Create Comments Table
+DROP TABLE IF EXISTS comments CASCADE;
 CREATE TABLE IF NOT EXISTS comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID NOT NULL,
@@ -51,6 +56,7 @@ CREATE TABLE IF NOT EXISTS comments (
 );
 
 -- Create Notifications Table
+DROP TABLE IF EXISTS notifications CASCADE;
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
@@ -71,6 +77,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- Create Task Logs Table
+DROP TABLE IF EXISTS task_logs CASCADE;
 CREATE TABLE IF NOT EXISTS task_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID NOT NULL,

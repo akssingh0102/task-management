@@ -1,16 +1,6 @@
 // src/validators/taskValidator.ts
 import { z } from 'zod';
 
-// export const createTaskSchema = z.object({
-//   title: z.string().max(255, 'Title must not exceed 255 characters'),
-//   description: z.string().min(1, 'Description is required'),
-//   status: z.enum(['pending', 'in_progress', 'completed']),
-//   priority: z.enum(['low', 'medium', 'high']),
-//   due_date: z.string().optional(),
-//   project_id: z.string().uuid(),
-//   assigned_user_id: z.string().uuid(),
-// });
-
 export const taskSchema = z.object({
   title: z.string().max(255, 'Title must not exceed 255 characters'),
   description: z.string(),

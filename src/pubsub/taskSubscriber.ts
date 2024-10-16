@@ -40,7 +40,6 @@ redis.subscribe('tasks', (err, count) => {
   console.log(`Subscribed to ${count} Redis channel(s).`);
 });
 
-// Process incoming Redis messages
 redis.on('message', async (channel, message) => {
   try {
     const parsedMessage = JSON.parse(message);
@@ -56,7 +55,6 @@ redis.on('message', async (channel, message) => {
         notificationMessage = `Task status has been updated to: ${status}.`;
       }
 
-      // Use the retry wrapper to handle retries
       await createNotificationLogWithRetry(
         task_id,
         assigned_user_id,

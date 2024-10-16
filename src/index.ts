@@ -2,6 +2,7 @@
 import express from 'express';
 import morgan from 'morgan';
 import taskRoutes from './routes/taskRoutes';
+import authRoutes from './routes/authRoutes';
 import dotenv from 'dotenv';
 import logger from './utils/logger';
 import './services/scheduler';
@@ -20,6 +21,7 @@ app.use(morgan('combined', { stream }));
 
 // Routes
 app.use('/api', taskRoutes);
+app.use('/auth', authRoutes);
 
 // Error handling
 app.use(

@@ -5,11 +5,12 @@ import {
   queryTasks,
   updateTask,
 } from '../controllers/taskController';
+import { protect } from '../middlewares/authMiddleware';
 
 const router = Router();
 
-router.post('/tasks', createTask);
-router.put('/tasks/:id', updateTask);
+router.post('/tasks', protect, createTask);
+router.put('/tasks/:id', protect, updateTask);
 router.get('/tasks/query', queryTasks);
 
 export default router;

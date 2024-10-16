@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import logger from '../utils/logger'; // Import the winston logger
+import logger from '../utils/logger';
 import { z } from 'zod';
 import db from '../db';
 import {
@@ -74,20 +74,16 @@ export const createTask = async (req: Request, res: Response) => {
       `Task created with ID ${createdTask.id} by user ${taskData.assigned_user_id}`
     );
 
-    // Return the created task
     res.status(201).json(createdTask);
   } catch (error: any) {
-    // Log the error using winston
     logger.error(`Error creating task: ${error.message}`);
 
     if (error instanceof z.ZodError) {
-      // Handle Zod validation errors
       logger.error(`Zod validation error: ${JSON.stringify(error.errors)}`);
       res.status(400).json({ error: error.errors });
       return;
     }
 
-    // Handle any other errors
     logger.error(`Unexpected error: ${error}`);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -95,13 +91,22 @@ export const createTask = async (req: Request, res: Response) => {
 
 export const updateTask = async (req: Request, res: Response) => {
   try {
-    // Validate the request body using Zod
     const updateData = updateTaskSchema.parse(req.body);
 
     const { id } = req.params;
-    const userId = req.user.id;
+    let userId;
 
-    // Check if the task exists
+    if (!req.user) {
+      res
+        .status(401)
+        .json({ error: 'Unauthorized, no user information found' });
+      return;
+    }
+
+    if (req.user && typeof req.user != 'string' && 'id' in req.user) {
+      userId = req.user.id;
+    }
+
     const taskQuery = await db.query('SELECT * FROM tasks WHERE id = $1', [id]);
     if (taskQuery.rows.length === 0) {
       logger.error(`Task with ID ${id} not found`);
@@ -110,7 +115,6 @@ export const updateTask = async (req: Request, res: Response) => {
     }
     const foundTask = taskQuery.rows[0];
 
-    // If assigned_user_id is present, check if the user exists
     if (updateData.assigned_user_id) {
       const userQuery = await db.query('SELECT id FROM users WHERE id = $1', [
         updateData.assigned_user_id,
@@ -124,7 +128,6 @@ export const updateTask = async (req: Request, res: Response) => {
       }
     }
 
-    // Prepare SQL query and update values
     const updateFields = [];
     const values = [];
 
@@ -168,7 +171,6 @@ export const updateTask = async (req: Request, res: Response) => {
       return;
     }
 
-    // Perform the update
     const updateQuery = `
         UPDATE tasks
         SET ${updateFields.join(', ')}
@@ -189,7 +191,6 @@ export const updateTask = async (req: Request, res: Response) => {
       );
     }
 
-    // Publish the task update message to Redis
     const message = {
       task_id: task.id,
       status: task.status,
@@ -198,10 +199,8 @@ export const updateTask = async (req: Request, res: Response) => {
 
     await redis.publish(REDIS_CHANNEL, JSON.stringify(message));
 
-    // Log task update
     logger.info(`Task with ID ${id} updated`);
 
-    // Return the updated task
     res.status(200).json(updatedTask.rows[0]);
   } catch (error: any) {
     logger.error(`Error updating task: ${error.message}`);
@@ -217,10 +216,8 @@ export const updateTask = async (req: Request, res: Response) => {
 
 export const queryTasks = async (req: Request, res: Response) => {
   try {
-    // Parse and validate query parameters using Zod
     const queryParams = queryTaskSchema.parse(req.query);
 
-    // Ensure at least one filter is present
     if (Object.keys(queryParams).length === 0) {
       res
         .status(400)
@@ -228,7 +225,6 @@ export const queryTasks = async (req: Request, res: Response) => {
       return;
     }
 
-    // Initialize base query and values array
     let query = `
         SELECT tasks.*, projects.name AS project_name, users.name AS assigned_user_name 
         FROM tasks
@@ -238,9 +234,7 @@ export const queryTasks = async (req: Request, res: Response) => {
     const queryValues: any[] = [];
     let whereClauses: string[] = [];
 
-    // Filter by project_id
     if (queryParams.project_id) {
-      // Check if the project exists
       const projectExists = await db.query(
         'SELECT id FROM projects WHERE id = $1',
         [queryParams.project_id]
@@ -254,9 +248,7 @@ export const queryTasks = async (req: Request, res: Response) => {
       queryValues.push(queryParams.project_id);
     }
 
-    // Filter by assigned_user_id
     if (queryParams.assigned_user_id) {
-      // Check if the user exists
       const userExists = await db.query('SELECT id FROM users WHERE id = $1', [
         queryParams.assigned_user_id,
       ]);
@@ -269,25 +261,21 @@ export const queryTasks = async (req: Request, res: Response) => {
       queryValues.push(queryParams.assigned_user_id);
     }
 
-    // Filter by status
     if (queryParams.status) {
       whereClauses.push(`tasks.status = $${queryValues.length + 1}`);
       queryValues.push(queryParams.status);
     }
 
-    // Filter by priority
     if (queryParams.priority) {
       whereClauses.push(`tasks.priority = $${queryValues.length + 1}`);
       queryValues.push(queryParams.priority);
     }
 
-    // Filter by due_in_days
     if (queryParams.due_in_days) {
       const dueDate = `CURRENT_DATE + INTERVAL '${queryParams.due_in_days} days'`;
       whereClauses.push(`tasks.due_date <= ${dueDate}`);
     }
 
-    // Filter by comment_keyword (join with comments table)
     if (queryParams.comment_keyword) {
       query += `
           LEFT JOIN comments ON comments.task_id = tasks.id
@@ -296,12 +284,10 @@ export const queryTasks = async (req: Request, res: Response) => {
       queryValues.push(`%${queryParams.comment_keyword}%`);
     }
 
-    // Add the WHERE clauses to the query
     if (whereClauses.length > 0) {
       query += ` WHERE ${whereClauses.join(' AND ')}`;
     }
 
-    // Add pagination
     if (queryParams.limit) {
       query += ` LIMIT $${queryValues.length + 1}`;
       queryValues.push(queryParams.limit);
@@ -312,15 +298,12 @@ export const queryTasks = async (req: Request, res: Response) => {
       queryValues.push(queryParams.offset);
     }
 
-    query += ' ORDER BY tasks.created_at DESC'; // Sort by most recent tasks
+    query += ' ORDER BY tasks.created_at DESC';
 
-    // Execute the query
     const result = await db.query(query, queryValues);
 
-    // Log the query action
     logger.info(`Tasks queried with filters: ${JSON.stringify(queryParams)}`);
 
-    // Return the filtered tasks
     res.status(200).json(result.rows);
   } catch (error: any) {
     logger.error(`Error querying tasks: ${error.message}`);
