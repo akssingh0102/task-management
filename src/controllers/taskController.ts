@@ -99,6 +99,7 @@ export const updateTask = async (req: Request, res: Response) => {
     const updateData = updateTaskSchema.parse(req.body);
 
     const { id } = req.params;
+    const userId = req.user.id;
 
     // Check if the task exists
     const taskQuery = await db.query('SELECT * FROM tasks WHERE id = $1', [id]);
@@ -107,6 +108,7 @@ export const updateTask = async (req: Request, res: Response) => {
       res.status(404).json({ error: 'Task not found' });
       return;
     }
+    const foundTask = taskQuery.rows[0];
 
     // If assigned_user_id is present, check if the user exists
     if (updateData.assigned_user_id) {
@@ -126,17 +128,37 @@ export const updateTask = async (req: Request, res: Response) => {
     const updateFields = [];
     const values = [];
 
+    const changes = [];
+
     if (updateData.status) {
+      changes.push({
+        field: 'status',
+        oldValue: foundTask.status,
+        newValue: updateData.status,
+      });
+
       updateFields.push(`status = $${updateFields.length + 1}`);
       values.push(updateData.status);
     }
 
     if (updateData.priority) {
+      changes.push({
+        field: 'priority',
+        oldValue: foundTask.priority,
+        newValue: updateData.priority,
+      });
+
       updateFields.push(`priority = $${updateFields.length + 1}`);
       values.push(updateData.priority);
     }
 
     if (updateData.assigned_user_id) {
+      changes.push({
+        field: 'assigned_user_id',
+        oldValue: foundTask.assigned_user_id,
+        newValue: updateData.assigned_user_id,
+      });
+
       updateFields.push(`assigned_user_id = $${updateFields.length + 1}`);
       values.push(updateData.assigned_user_id);
     }
@@ -158,6 +180,14 @@ export const updateTask = async (req: Request, res: Response) => {
     const updatedTask = await db.query(updateQuery, values);
 
     const task = updatedTask.rows[0];
+
+    for (const change of changes) {
+      await db.query(
+        `INSERT INTO task_logs (task_id, user_id, field_changed, old_value, new_value, change_made_at)
+           VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [id, userId, change.field, change.oldValue, change.newValue]
+      );
+    }
 
     // Publish the task update message to Redis
     const message = {
