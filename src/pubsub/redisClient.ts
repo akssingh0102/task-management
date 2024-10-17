@@ -1,19 +1,37 @@
 import Redis from 'ioredis';
 import logger from '../utils/logger';
 
-const redis = new Redis({
+// Create one Redis instance for publishing and normal commands
+const redisPublisher = new Redis({
   host: '127.0.0.1',
   port: 6379,
 });
 
-redis.on('connect', () => {
-  console.log('Connected to Redis');
-  logger.info('Connected to Redis');
+redisPublisher.on('connect', () => {
+  console.log('Connected to Redis Publisher');
+  logger.info('Connected to Redis Publisher');
 });
 
-redis.on('error', (err) => {
-  console.error('Redis connection error:', err);
-  logger.error(`Redis connection error: ${err}`);
+redisPublisher.on('error', (err) => {
+  console.error('Redis Publisher connection error:', err);
+  logger.error(`Redis Publisher connection error: ${err}`);
 });
 
-export default redis;
+// Create a separate Redis instance for subscribing
+const redisSubscriber = new Redis({
+  host: '127.0.0.1',
+  port: 6379,
+});
+
+redisSubscriber.on('connect', () => {
+  console.log('Connected to Redis Subscriber');
+  logger.info('Connected to Redis Subscriber');
+});
+
+redisSubscriber.on('error', (err) => {
+  console.error('Redis Subscriber connection error:', err);
+  logger.error(`Redis Subscriber connection error: ${err}`);
+});
+
+// Export both instances
+export { redisPublisher, redisSubscriber };

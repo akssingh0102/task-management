@@ -7,8 +7,9 @@ import {
   taskSchema,
   updateTaskSchema,
 } from '../validators/taskValidator';
-import redis from '../pubsub/redisClient';
+import { redisPublisher } from '../pubsub/redisClient';
 import { REDIS_CHANNEL, REDIS_EVENTS } from '../utils/constants';
+import { validateUUID } from '../utils/utils';
 
 export const createTask = async (req: Request, res: Response) => {
   try {
@@ -67,7 +68,7 @@ export const createTask = async (req: Request, res: Response) => {
       assigned_user_id: createdTask.assigned_user_id,
     };
 
-    await redis.publish(REDIS_CHANNEL, JSON.stringify(message));
+    await redisPublisher.publish(REDIS_CHANNEL, JSON.stringify(message));
 
     // Log task creation
     logger.info(
@@ -91,12 +92,20 @@ export const createTask = async (req: Request, res: Response) => {
 
 export const updateTask = async (req: Request, res: Response) => {
   try {
+    logger.info('Inside updateTask API');
+
+    // Log the incoming request body for debugging
+    logger.debug(`Request body: ${JSON.stringify(req.body)}`);
+
     const updateData = updateTaskSchema.parse(req.body);
 
     const { id } = req.params;
+    logger.debug(`Task ID from request params: ${id}`);
+
     let userId;
 
     if (!req.user) {
+      logger.error('Unauthorized access attempt, no user info found');
       res
         .status(401)
         .json({ error: 'Unauthorized, no user information found' });
@@ -105,89 +114,148 @@ export const updateTask = async (req: Request, res: Response) => {
 
     if (req.user && typeof req.user != 'string' && 'id' in req.user) {
       userId = req.user.id;
+      logger.debug(`User ID from request: ${userId}`);
     }
 
-    const taskQuery = await db.query('SELECT * FROM tasks WHERE id = $1', [id]);
+    const taskIdTrimmed = id.trim();
+    if (!validateUUID(taskIdTrimmed)) {
+      logger.error(`Invalid UUID format for task ID: ${taskIdTrimmed}`);
+      res.status(400).json({ error: 'Invalid task ID format' });
+      return;
+    }
+
+    // Log the query for task retrieval
+    logger.debug(`Querying for task with ID: ${taskIdTrimmed}`);
+    const taskQuery = await db.query('SELECT * FROM tasks WHERE id = $1', [
+      taskIdTrimmed,
+    ]);
+
     if (taskQuery.rows.length === 0) {
-      logger.error(`Task with ID ${id} not found`);
+      logger.error(`Task with ID ${taskIdTrimmed} not found`);
       res.status(404).json({ error: 'Task not found' });
       return;
     }
+
     const foundTask = taskQuery.rows[0];
+    logger.info(
+      `Task with ID ${taskIdTrimmed} found: ${JSON.stringify(foundTask)}`
+    );
 
     if (updateData.assigned_user_id) {
+      const assignedUserIdTrimmed = updateData.assigned_user_id.trim();
+      if (!validateUUID(assignedUserIdTrimmed)) {
+        logger.error(
+          `Invalid UUID format for assigned user ID: ${assignedUserIdTrimmed}`
+        );
+        res.status(400).json({ error: 'Invalid assigned user ID format' });
+        return;
+      }
+
+      logger.debug(
+        `Validating assigned user with ID: ${assignedUserIdTrimmed}`
+      );
       const userQuery = await db.query('SELECT id FROM users WHERE id = $1', [
-        updateData.assigned_user_id,
+        assignedUserIdTrimmed,
       ]);
+
       if (userQuery.rows.length === 0) {
         logger.error(
-          `Assigned user with ID ${updateData.assigned_user_id} not found`
+          `Assigned user with ID ${assignedUserIdTrimmed} not found`
         );
         res.status(404).json({ error: 'Assigned user not found' });
         return;
       }
+      logger.debug(`Assigned user with ID ${assignedUserIdTrimmed} exists`);
     }
 
     const updateFields = [];
     const values = [];
-
     const changes = [];
 
     if (updateData.status) {
-      changes.push({
-        field: 'status',
-        oldValue: foundTask.status,
-        newValue: updateData.status,
-      });
+      logger.debug(
+        `Updating status from ${foundTask.status} to ${updateData.status}`
+      );
+
+      if (foundTask.status != updateData.status) {
+        changes.push({
+          field: 'status',
+          oldValue: foundTask.status,
+          newValue: updateData.status,
+        });
+      }
 
       updateFields.push(`status = $${updateFields.length + 1}`);
       values.push(updateData.status);
     }
 
     if (updateData.priority) {
-      changes.push({
-        field: 'priority',
-        oldValue: foundTask.priority,
-        newValue: updateData.priority,
-      });
+      logger.debug(
+        `Updating priority from ${foundTask.priority} to ${updateData.priority}`
+      );
+      if (foundTask.priority != updateData.priority) {
+        changes.push({
+          field: 'priority',
+          oldValue: foundTask.priority,
+          newValue: updateData.priority,
+        });
+      }
 
       updateFields.push(`priority = $${updateFields.length + 1}`);
       values.push(updateData.priority);
     }
 
     if (updateData.assigned_user_id) {
-      changes.push({
-        field: 'assigned_user_id',
-        oldValue: foundTask.assigned_user_id,
-        newValue: updateData.assigned_user_id,
-      });
+      const assignedUserIdTrimmed = updateData.assigned_user_id.trim();
+      logger.debug(
+        `Updating assigned_user_id from ${foundTask.assigned_user_id} to ${assignedUserIdTrimmed}`
+      );
+      if (foundTask.assigned_user_id != assignedUserIdTrimmed) {
+        changes.push({
+          field: 'assigned_user_id',
+          oldValue: foundTask.assigned_user_id,
+          newValue: assignedUserIdTrimmed,
+        });
+      }
 
       updateFields.push(`assigned_user_id = $${updateFields.length + 1}`);
-      values.push(updateData.assigned_user_id);
+      values.push(assignedUserIdTrimmed);
     }
 
     if (updateFields.length === 0) {
+      logger.warn('No valid fields to update');
       res.status(400).json({ error: 'No valid fields to update' });
       return;
     }
 
-    const updateQuery = `
-        UPDATE tasks
-        SET ${updateFields.join(', ')}
-        WHERE id = $${values.length + 1}
-        RETURNING *;
-      `;
-    values.push(id);
+    logger.debug(`Fields to update: ${updateFields.join(', ')}`);
+    logger.debug(`Update values: ${JSON.stringify(values)}`);
 
+    const updateQuery = `
+          UPDATE tasks
+          SET ${updateFields.join(', ')}
+          WHERE id = $${values.length + 1}
+          RETURNING *;
+        `;
+    values.push(taskIdTrimmed);
+
+    logger.debug(`Executing update query: ${updateQuery}`);
     const updatedTask = await db.query(updateQuery, values);
 
     const task = updatedTask.rows[0];
+    logger.info(
+      `Task with ID ${taskIdTrimmed} updated: ${JSON.stringify(task)}`
+    );
 
+    // Log each change being recorded in task_logs
     for (const change of changes) {
+      logger.debug(
+        `Logging change for task ${taskIdTrimmed}: field ${change.field} from ${change.oldValue} to ${change.newValue}`
+      );
       await db.query(
         `INSERT INTO task_logs (task_id, user_id, field_changed, old_value, new_value, change_made_at)
-           VALUES ($1, $2, $3, $4, $5, NOW())`,
-        [id, userId, change.field, change.oldValue, change.newValue]
+             VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [taskIdTrimmed, userId, change.field, change.oldValue, change.newValue]
       );
     }
 
@@ -197,15 +265,22 @@ export const updateTask = async (req: Request, res: Response) => {
       assigned_user_id: task.assigned_user_id,
     };
 
-    await redis.publish(REDIS_CHANNEL, JSON.stringify(message));
+    // Log Redis publishing event
+    logger.debug(
+      `Publishing update to Redis for task ${taskIdTrimmed}: ${JSON.stringify(
+        message
+      )}`
+    );
+    await redisPublisher.publish(REDIS_CHANNEL, JSON.stringify(message));
 
-    logger.info(`Task with ID ${id} updated`);
+    logger.info(`Task with ID ${taskIdTrimmed} successfully updated`);
 
     res.status(200).json(updatedTask.rows[0]);
   } catch (error: any) {
     logger.error(`Error updating task: ${error.message}`);
 
     if (error instanceof z.ZodError) {
+      logger.error(`Validation error: ${JSON.stringify(error.errors)}`);
       res.status(400).json({ error: error.errors });
       return;
     }

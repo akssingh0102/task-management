@@ -1,8 +1,8 @@
 import cron from 'node-cron';
-import redis from '../pubsub/redisClient';
+// import redis from '../pubsub/redisClient';
 import db from '../db';
 import logger from '../utils/logger';
-import { REDIS_CHANNEL, REDIS_EVENTS } from '../utils/constants';
+// import { REDIS_CHANNEL, REDIS_EVENTS } from '../utils/constants';
 
 // Function to find tasks due tomorrow
 const getTasksDueTomorrow = async () => {

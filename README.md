@@ -21,10 +21,10 @@ A Task Management System built with Node.js, Express, PostgreSQL, and Redis. Thi
 
 ## Requirements
 
-- Node.js (v14.x or higher)
+- Node.js (v20.x or higher)
 - PostgreSQL (v12.x or higher)
 - Redis (v6.x or higher)
-- npm (v6.x or higher)
+- npm (v10.x or higher)
 
 ## Installation
 
@@ -72,7 +72,7 @@ A Task Management System built with Node.js, Express, PostgreSQL, and Redis. Thi
 2. **Run the seeder script** 
    ```
    npm run build
-   node dist/seed//seed.js
+   node dist/seed//seed_data.js
    ```
    Note: this will create the required tables and seeder data.
 
@@ -93,7 +93,7 @@ A Task Management System built with Node.js, Express, PostgreSQL, and Redis. Thi
 
 ## Real-Time Notifications
 
-The application uses Redis for real-time notification processing. When a task is created or updated, a message is published to Redis, which can be consumed by notification handlers.
+The application uses Redis for real-time notification processing. When a task is created or updated, a message is published to Redis, which can be consumed by notification handlers, which ultimately create a notification entry in the TABLE.
 
 ## Scheduled Notifications
 
