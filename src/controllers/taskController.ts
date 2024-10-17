@@ -291,9 +291,14 @@ export const updateTask = async (req: Request, res: Response) => {
 
 export const queryTasks = async (req: Request, res: Response) => {
   try {
+    logger.info('Starting queryTasks API...');
+
+    // Validate and parse query parameters
     const queryParams = queryTaskSchema.parse(req.query);
+    logger.debug(`Parsed query parameters: ${JSON.stringify(queryParams)}`);
 
     if (Object.keys(queryParams).length === 0) {
+      logger.warn('No query parameters provided');
       res
         .status(400)
         .json({ error: 'At least one query parameter is required' });
@@ -309,33 +314,46 @@ export const queryTasks = async (req: Request, res: Response) => {
     const queryValues: any[] = [];
     let whereClauses: string[] = [];
 
+    // Check for project_id
     if (queryParams.project_id) {
+      logger.debug(
+        `Checking existence of project with ID: ${queryParams.project_id}`
+      );
       const projectExists = await db.query(
         'SELECT id FROM projects WHERE id = $1',
         [queryParams.project_id]
       );
+
       if (projectExists.rows.length === 0) {
+        logger.warn(`Project with ID ${queryParams.project_id} not found`);
         res.status(404).json({ error: 'Project not found' });
         return;
       }
-
       whereClauses.push(`tasks.project_id = $${queryValues.length + 1}`);
       queryValues.push(queryParams.project_id);
     }
 
+    // Check for assigned_user_id
     if (queryParams.assigned_user_id) {
+      logger.debug(
+        `Checking existence of user with ID: ${queryParams.assigned_user_id}`
+      );
       const userExists = await db.query('SELECT id FROM users WHERE id = $1', [
         queryParams.assigned_user_id,
       ]);
+
       if (userExists.rows.length === 0) {
+        logger.warn(
+          `Assigned user with ID ${queryParams.assigned_user_id} not found`
+        );
         res.status(404).json({ error: 'Assigned user not found' });
         return;
       }
-
       whereClauses.push(`tasks.assigned_user_id = $${queryValues.length + 1}`);
       queryValues.push(queryParams.assigned_user_id);
     }
 
+    // Build where clauses for additional filters
     if (queryParams.status) {
       whereClauses.push(`tasks.status = $${queryValues.length + 1}`);
       queryValues.push(queryParams.status);
@@ -349,6 +367,9 @@ export const queryTasks = async (req: Request, res: Response) => {
     if (queryParams.due_in_days) {
       const dueDate = `CURRENT_DATE + INTERVAL '${queryParams.due_in_days} days'`;
       whereClauses.push(`tasks.due_date <= ${dueDate}`);
+      logger.debug(
+        `Filtering tasks due within ${queryParams.due_in_days} days`
+      );
     }
 
     if (queryParams.comment_keyword) {
@@ -359,31 +380,46 @@ export const queryTasks = async (req: Request, res: Response) => {
       queryValues.push(`%${queryParams.comment_keyword}%`);
     }
 
+    // Add where clauses to the query
     if (whereClauses.length > 0) {
       query += ` WHERE ${whereClauses.join(' AND ')}`;
+      logger.debug(
+        `Adding WHERE clauses to query: ${whereClauses.join(' AND ')}`
+      );
     }
 
+    // Handle pagination
     if (queryParams.limit) {
       query += ` LIMIT $${queryValues.length + 1}`;
       queryValues.push(queryParams.limit);
+      logger.debug(`Setting limit to: ${queryParams.limit}`);
     }
 
     if (queryParams.offset) {
       query += ` OFFSET $${queryValues.length + 1}`;
       queryValues.push(queryParams.offset);
+      logger.debug(`Setting offset to: ${queryParams.offset}`);
     }
 
+    // Finalize query
     query += ' ORDER BY tasks.created_at DESC';
+    logger.info(
+      `Executing query: ${query} with values: ${JSON.stringify(queryValues)}`
+    );
 
+    // Execute the query
     const result = await db.query(query, queryValues);
+    logger.info(
+      `Tasks queried successfully, total tasks found: ${result.rows.length}`
+    );
 
-    logger.info(`Tasks queried with filters: ${JSON.stringify(queryParams)}`);
-
+    // Respond with the results
     res.status(200).json(result.rows);
   } catch (error: any) {
     logger.error(`Error querying tasks: ${error.message}`);
 
     if (error instanceof z.ZodError) {
+      logger.warn('Validation error: invalid input parameters');
       res.status(400).json({
         error: 'Invalid input',
         details: error.errors.map((e) => ({
@@ -394,6 +430,7 @@ export const queryTasks = async (req: Request, res: Response) => {
       return;
     }
 
+    logger.error('Internal server error');
     res.status(500).json({ error: 'Internal server error' });
   }
 };

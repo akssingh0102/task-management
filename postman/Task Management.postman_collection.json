@@ -1,0 +1,265 @@
+{
+	"info": {
+		"_postman_id": "722610b8-511b-4620-95ae-e3725482a256",
+		"name": "Task Management",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "15510298"
+	},
+	"item": [
+		{
+			"name": "Register",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Parse the response body",
+							"const responseBody = pm.response.json();",
+							"",
+							"if (responseBody.token) {",
+							"    pm.environment.set(\"authToken\", responseBody.token);",
+							"    console.log(\"authToken has been set to: \" + responseBody.token);",
+							"} else {",
+							"    console.log(\"Token not found in the response.\");",
+							"}",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"akash3\",\n    \"email\": \"akash.singh3@gmail.com\",\n    \"password\": \"akash1\"\n\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/register",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Login",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Parse the response body",
+							"const responseBody = pm.response.json();",
+							"",
+							"if (responseBody.token) {",
+							"    pm.environment.set(\"authToken\", responseBody.token);",
+							"    console.log(\"authToken has been set to: \" + responseBody.token);",
+							"} else {",
+							"    console.log(\"Token not found in the response.\");",
+							"}",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"email\": \"akash.singh@gmail.com\",\n    \"password\": \"akash1\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/login",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Task",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{authToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"title\": \"Task Title\",\n  \"description\": \"Task Description\",\n  \"status\": \"pending\",\n  \"priority\": \"high\",\n  \"due_date\": \"2024-10-31\",\n  \"project_id\": \"3582dea7-4d4b-4a7a-a868-f685ee8fa28a\",\n  \"assigned_user_id\": \"878b5a6a-eb8f-4358-b01f-14423d595513\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/tasks",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"tasks"
+					]
+				},
+				"description": "Generated from cURL: curl -X POST http://localhost:3000/tasks \\\n-H \"Content-Type: application/json\" \\\n-d '{\n  \"title\": \"Task Title\",\n  \"description\": \"Task Description\",\n  \"status\": \"pending\",\n  \"priority\": \"high\",\n  \"due_date\": \"2024-10-31\",\n  \"project_id\": 1,\n  \"assigned_user_id\": 2\n}'\n"
+			},
+			"response": []
+		},
+		{
+			"name": "Update Task",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{authToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {your_jwt_token}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"status\": \"in_progress\",\n    \"priority\": \"high\",\n    \"assigned_user_id\": \"878b5a6a-eb8f-4358-b01f-14423d595513\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/tasks/ 07c6e0b1-0857-4f7d-9e45-ac59431e69d4",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"tasks",
+						" 07c6e0b1-0857-4f7d-9e45-ac59431e69d4"
+					]
+				},
+				"description": "Generated from cURL: curl -X PUT http://localhost:3000/tasks/{taskId} \\\n-H \"Content-Type: application/json\" \\\n-H \"Authorization: Bearer {your_jwt_token}\" \\\n-d '{\n    \"status\": \"in_progress\",\n    \"priority\": \"high\",\n    \"assigned_user_id\": \"{assigned_user_id}\"\n}'\n"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Task Query",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:3000/api/tasks/query?comment_keyword=Chart.js",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"tasks",
+						"query"
+					],
+					"query": [
+						{
+							"key": "project_id",
+							"value": "123",
+							"disabled": true
+						},
+						{
+							"key": "assigned_user_id",
+							"value": "456",
+							"disabled": true
+						},
+						{
+							"key": "status",
+							"value": "pending",
+							"disabled": true
+						},
+						{
+							"key": "priority",
+							"value": "high",
+							"disabled": true
+						},
+						{
+							"key": "due_in_days",
+							"value": "7",
+							"disabled": true
+						},
+						{
+							"key": "comment_keyword",
+							"value": "Chart.js"
+						},
+						{
+							"key": "limit",
+							"value": "10",
+							"disabled": true
+						},
+						{
+							"key": "offset",
+							"value": "0",
+							"disabled": true
+						}
+					]
+				},
+				"description": "Generated from cURL: curl -X GET \"http://localhost:3000/api/tasks?project_id=123&assigned_user_id=456&status=completed&priority=high&due_in_days=7&comment_keyword=urgent&limit=10&offset=0\" \\\n-H \"Content-Type: application/json\"\n"
+			},
+			"response": []
+		}
+	]
+}
